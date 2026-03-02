@@ -6,7 +6,12 @@ const app = express();
 
 app.use(
   cors({
-    origin: "https://volunteer-hub-frontend-rose.vercel.app/",
+    origin: [
+      "https://volunteer-hub-frontend-rose.vercel.app",
+      
+      "http://localhost:5173",
+      "http://localhost:5174"
+    ],
     credentials: true,
   })
 );
