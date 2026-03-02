@@ -6,7 +6,7 @@ const app = express();
 
 app.use(
   cors({
-    origin: "https://volunteer-hub-frontend-rose.vercel.app",
+    origin: "https://volunteer-hub-backend-5z2n.onrender.com",
     credentials: true,
   })
 );
