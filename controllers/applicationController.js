@@ -1,93 +1,103 @@
 const supabase = require("../config/supabaseClient");
 
-exports.apply = async (req, res) => {
+const apply = async (req, res) => {
   try {
     const { opportunity_id } = req.body;
-    const volunteer_id = req.user.id;
 
-    if (!opportunity_id) {
-      return res.status(400).json({
-        error: "Opportunity ID is required"
-      });
-    }
+    if (!opportunity_id)
+      return res.status(400).json({ error: "Opportunity ID required" });
 
-    const { data: existing } = await supabase
-      .from("applications")
-      .select("id")
-      .eq("opportunity_id", opportunity_id)
-      .eq("volunteer_id", volunteer_id);
+    const { error } = await supabase.from("applications").insert([
+      {
+        opportunity_id,
+        volunteer_id: req.user.id,
+        status: "applied"
+      },
+    ]);
 
-    if (existing.length > 0) {
-      return res.status(400).json({
-        error: "You already applied"
-      });
-    }
+    if (error) return res.status(400).json({ error: error.message });
 
-    const { error } = await supabase
-      .from("applications")
-      .insert([{ opportunity_id, volunteer_id }]);
-
-    if (error) {
-      return res.status(400).json({ error: error.message });
-    }
-
-    return res.status(201).json({
-      message: "Applied successfully"
-    });
-
+    res.status(201).json({ message: "Applied successfully" });
   } catch (err) {
-    return res.status(500).json({
-      error: "Internal server error"
-    });
+    res.status(500).json({ error: "Internal server error" });
   }
 };
 
-exports.getApplications = async (req, res) => {
+const getMyApplications = async (req, res) => {
   try {
     const { data, error } = await supabase
       .from("applications")
-      .select(`
-        id,
-        status,
-        applied_at,
-        opportunities ( title, location, date ),
-        profiles ( email, role )
-      `);
+      .select("*, opportunities(*)")
+      .eq("volunteer_id", req.user.id);
 
-    if (error) {
-      return res.status(400).json({ error: error.message });
-    }
+    if (error) return res.status(400).json({ error: error.message });
 
-    return res.status(200).json(data);
-
+    res.json(data);
   } catch (err) {
-    return res.status(500).json({
-      error: "Internal server error"
-    });
+    res.status(500).json({ error: "Internal server error" });
   }
 };
 
-exports.updateStatus = async (req, res) => {
+const updateStatus = async (req, res) => {
   try {
-    const { status } = req.body;
     const { id } = req.params;
+    const { status } = req.body;
+
+    if (!status)
+      return res.status(400).json({ error: "Status required" });
 
     const { error } = await supabase
       .from("applications")
       .update({ status })
       .eq("id", id);
 
+    if (error) return res.status(400).json({ error: error.message });
+
+    res.json({ message: "Status updated successfully" });
+  } catch (err) {
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+const getOrganizationApplications = async (req, res) => {
+  try {
+    if (req.user.role !== "organization") {
+      return res.status(403).json({ error: "Only organizations allowed" });
+    }
+
+    const { data, error } = await supabase
+      .from("applications")
+      .select(`
+        id,
+        status,
+        applied_at,
+        volunteer:volunteer_id (
+          id,
+          email
+        ),
+        opportunity:opportunity_id (
+          id,
+          title,
+          location,
+          start_date,
+          end_date,
+          organizer_id
+        )
+      `)
+      .eq("opportunity.organizer_id", req.user.id);
+
     if (error) {
       return res.status(400).json({ error: error.message });
     }
 
-    return res.status(200).json({
-      message: "Status updated"
-    });
-
+    res.json(data);
   } catch (err) {
-    return res.status(500).json({
-      error: "Internal server error"
-    });
+    res.status(500).json({ error: "Internal server error" });
   }
+};
+
+module.exports = {
+  apply,
+  getMyApplications,
+  updateStatus,
+  getOrganizationApplications
 };
