@@ -46,6 +46,17 @@ const updateStatus = async (req, res) => {
     if (!status)
       return res.status(400).json({ error: "Status required" });
 
+    // Pre-fetch application data to know who to notify
+    const { data: appData, error: fetchError } = await supabase
+      .from("applications")
+      .select("volunteer_id, opportunity_id, opportunities!inner(title)")
+      .eq("id", id)
+      .single();
+
+    if (fetchError) {
+      console.error("Error fetching app for notification:", fetchError);
+    }
+
     const { error } = await supabase
       .from("applications")
       .update({ status })
@@ -60,9 +71,10 @@ const updateStatus = async (req, res) => {
 };
 const getOrganizationApplications = async (req, res) => {
   try {
-    if (req.user.role !== "organization") {
+    if (!req.user || !req.user.role || req.user.role.toLowerCase() !== "organization") {
       return res.status(403).json({ error: "Only organizations allowed" });
     }
+
 
     const { data, error } = await supabase
       .from("applications")
@@ -70,20 +82,14 @@ const getOrganizationApplications = async (req, res) => {
         id,
         status,
         applied_at,
-        volunteer:volunteer_id (
-          id,
-          email
-        ),
-        opportunity:opportunity_id (
-          id,
-          title,
-          location,
-          start_date,
-          end_date,
-          organizer_id
-        )
+        volunteer_id,
+        opportunity_id,
+        volunteer:volunteer_id(id, email),
+        opportunities:opportunity_id!inner(title, location, start_date, end_date, organizer_id)
       `)
-      .eq("opportunity.organizer_id", req.user.id);
+      .eq("opportunities.organizer_id", req.user.id);
+
+
 
     if (error) {
       return res.status(400).json({ error: error.message });

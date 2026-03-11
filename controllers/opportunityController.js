@@ -1,7 +1,7 @@
 const supabase = require("../config/supabaseClient");
 
 exports.createOpportunity = async (req, res) => {
-  if (req.user.role !== "organization")
+  if (!req.user || !req.user.role || req.user.role.toLowerCase() !== "organization")
     return res.status(403).json({ error: "Only organizations allowed" });
 
   const {
@@ -11,6 +11,7 @@ exports.createOpportunity = async (req, res) => {
     start_date,
     end_date,
     max_hours,
+    category,
   } = req.body;
 
   const { error } = await supabase.from("opportunities").insert([
@@ -21,6 +22,7 @@ exports.createOpportunity = async (req, res) => {
       start_date,
       end_date,
       max_hours,
+      category,
       organizer_id: req.user.id,
     },
   ]);
